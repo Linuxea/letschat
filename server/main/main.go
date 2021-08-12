@@ -53,6 +53,15 @@ func dealClient(conn *net.Conn) {
 		} else if err == io.EOF {
 			fmt.Println(fmt.Sprintf("%s退出了", addr))
 			removeConn(conn)
+
+			for _, temp := range conns {
+				if nick, ok := nicks[conn]; ok {
+					_, _ = (*temp).Write([]byte(nick + "退出了聊天室"))
+				} else {
+					_, _ = (*temp).Write([]byte("陌生人退出了聊天室"))
+				}
+			}
+
 			break
 		}
 
@@ -70,7 +79,7 @@ func dealClient(conn *net.Conn) {
 		for i, conn2 := range conns {
 			someBody := nicks[conn]
 			if (*conn2).RemoteAddr().String() == addr.String() {
-				someBody = "你"
+				continue
 			}
 			_, err := (*conn2).Write([]byte(someBody + "说: " + string(tmp[:n])))
 			if err != nil {
