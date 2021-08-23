@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io"
 	errs "letschat/error"
+	"letschat/secret"
 	"net"
+	"time"
 )
 
 var conns = make([]*net.Conn, 0)
@@ -35,7 +37,7 @@ func main() {
 func dealClient(conn *net.Conn) {
 	addr := (*conn).RemoteAddr()
 	fmt.Println(fmt.Sprintf("%s连接进来了", addr))
-	_, err := (*conn).Write([]byte("欢迎来到本聊天室,第一个输入的文本将作为你的昵称"))
+	_, err := (*conn).Write([]byte(secret.Encrypt("欢迎来到本聊天室,第一个输入的文本将作为你的昵称")))
 	if err != nil {
 		removeConn(conn)
 		return
@@ -51,14 +53,14 @@ func dealClient(conn *net.Conn) {
 			removeConn(conn)
 			break
 		} else if err == io.EOF {
-			fmt.Println(fmt.Sprintf("%s退出了", addr))
+			fmt.Println(secret.Encrypt(fmt.Sprintf("%s退出了", addr)))
 			removeConn(conn)
 
 			for _, temp := range conns {
 				if nick, ok := nicks[conn]; ok {
-					_, _ = (*temp).Write([]byte(nick + "退出了聊天室"))
+					_, _ = (*temp).Write([]byte(secret.Encrypt(nick + "退出了聊天室")))
 				} else {
-					_, _ = (*temp).Write([]byte("陌生人退出了聊天室"))
+					_, _ = (*temp).Write([]byte(secret.Encrypt("陌生人退出了聊天室")))
 				}
 			}
 
@@ -72,16 +74,16 @@ func dealClient(conn *net.Conn) {
 		}
 
 		if _, ok := nicks[conn]; ok == false {
-			nicks[conn] = string(tmp[:n-1])
+			nicks[conn] = secret.Decrypt(string(tmp[:n-1]))
 		}
 
-		fmt.Print(nicks[conn] + "说:" + string(tmp[:n]))
+		fmt.Print(nicks[conn] + "说:" + secret.Decrypt(string(tmp[:n])))
 		for i, conn2 := range conns {
 			someBody := nicks[conn]
 			if (*conn2).RemoteAddr().String() == addr.String() {
 				continue
 			}
-			_, err := (*conn2).Write([]byte(someBody + "说: " + string(tmp[:n])))
+			_, err := (*conn2).Write([]byte(someBody + time.Now().Format("2006-01-02 15:04:05") + "说: " + secret.Decrypt(string(tmp[:n]))))
 			if err != nil {
 				fmt.Println(addr.String() + "出现了异常, 关闭此连接")
 				waitCloseConn = append(waitCloseConn, conns[i])
