@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	errs "letschat/error"
+	"letschat/secret"
 	"net"
 	"os"
 	"strings"
@@ -36,9 +37,14 @@ func main() {
 func read(conn net.Conn) {
 	for {
 		readByte := make([]byte, 256)
-		_, err := conn.Read(readByte)
+		result, err := conn.Read(readByte)
 		errs.PanicErr(err)
-		fmt.Println(string(readByte))
+
+		decrypt, err := secret.Decrypt(readByte[:result])
+		if err != nil {
+			fmt.Println("解密失败", err)
+		}
+		fmt.Println(string(decrypt))
 	}
 }
 
@@ -46,7 +52,11 @@ func write(conn net.Conn) {
 	for {
 		reader := bufio.NewReader(os.Stdin)
 		text, _ := reader.ReadString('\n')
-		_, err := conn.Write([]byte(text))
+		encrypt, err := secret.Encrypt([]byte(text))
+		if err != nil {
+			fmt.Println("加密失败", err)
+		}
+		_, err = conn.Write(encrypt)
 		errs.PanicErr(err)
 	}
 }
