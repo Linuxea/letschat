@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"io"
 	errs "letschat/error"
-	"letschat/secret"
 	"net"
-	"strings"
 )
 
 var conns = make([]*net.Conn, 0)
@@ -21,11 +19,7 @@ func main() {
 		// 等待接收连接
 		accept, err := listen.Accept()
 		for _, conn := range conns {
-			encrypt, err := secret.Encrypt([]byte(fmt.Sprintf("欢迎%s进入聊天室", accept.RemoteAddr().String())))
-			if err != nil {
-				fmt.Println("加密失败")
-			}
-			_, _ = (*conn).Write(encrypt)
+			_, _ = (*conn).Write([]byte(fmt.Sprintf("欢迎%s进入聊天室", accept.RemoteAddr().String())))
 		}
 
 		conns = append(conns, &accept)
@@ -41,12 +35,7 @@ func main() {
 func dealClient(conn *net.Conn) {
 	addr := (*conn).RemoteAddr()
 	fmt.Println(fmt.Sprintf("%s连接进来了", addr))
-
-	encrypt, err := secret.Encrypt([]byte("欢迎来到本聊天室,第一个输入的文本将作为你的昵称"))
-	if err != nil {
-		fmt.Println("加密失败")
-	}
-	_, err = (*conn).Write(encrypt)
+	_, err := (*conn).Write([]byte("欢迎来到本聊天室,第一个输入的文本将作为你的昵称"))
 	if err != nil {
 		removeConn(conn)
 		return
@@ -67,19 +56,9 @@ func dealClient(conn *net.Conn) {
 
 			for _, temp := range conns {
 				if nick, ok := nicks[conn]; ok {
-					encrypt, err := secret.Encrypt([]byte(nick + "退出了聊天室"))
-					if err != nil {
-						fmt.Println("加密失败")
-					}
-
-					_, _ = (*temp).Write(encrypt)
+					_, _ = (*temp).Write([]byte(nick + "退出了聊天室"))
 				} else {
-					encrypt, err := secret.Encrypt([]byte("陌生人退出了聊天室"))
-					if err != nil {
-						fmt.Println("加密失败")
-					}
-
-					_, _ = (*temp).Write(encrypt)
+					_, _ = (*temp).Write([]byte("陌生人退出了聊天室"))
 				}
 			}
 
@@ -88,32 +67,21 @@ func dealClient(conn *net.Conn) {
 
 		waitCloseConn := make([]*net.Conn, 0)
 
-		decrypt, err := secret.Decrypt(tmp[:n])
-		if err != nil {
-			fmt.Println("解密失败", err)
-		}
-
-		if string(decrypt) == "\n" {
+		if string(tmp[:n]) == "\n" {
 			continue
 		}
 
 		if _, ok := nicks[conn]; ok == false {
-			nicks[conn] = strings.TrimRight(string(decrypt), "\n")
+			nicks[conn] = string(tmp[:n-1])
 		}
 
-		fmt.Print(nicks[conn] + "说:" + string(decrypt))
+		fmt.Print(nicks[conn] + "说:" + string(tmp[:n]))
 		for i, conn2 := range conns {
 			someBody := nicks[conn]
 			if (*conn2).RemoteAddr().String() == addr.String() {
 				continue
 			}
-
-			encrypt, err := secret.Encrypt([]byte(someBody + "说: " + string(decrypt)))
-			if err != nil {
-				fmt.Println("加密失败")
-			}
-
-			_, err = (*conn2).Write(encrypt)
+			_, err := (*conn2).Write([]byte(someBody + "说: " + string(tmp[:n])))
 			if err != nil {
 				fmt.Println(addr.String() + "出现了异常, 关闭此连接")
 				waitCloseConn = append(waitCloseConn, conns[i])
